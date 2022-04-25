@@ -1,0 +1,39 @@
+version: "3.9"
+services:
+  tsbench:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    command:
+    - "-connection-string=host=db user=postgres database=homework password=sup3r-s3cur3-p4ssw0rd"
+    - "-query-params-path=/query_params.csv"
+    links:
+      - db
+    volumes:
+    - ./TimescaleDB_coding_assignment-RD_eng_setup/query_params.csv:/query_params.csv:ro
+    networks:
+      - tsbench
+  db:
+    image: timescale/timescaledb:latest-pg14
+    environment:
+      - POSTGRES_PASSWORD=sup3r-s3cur3-p4ssw0rd
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -d homework -c 'select * from cpu_usage limit 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db:/var/lib/postgresql/data
+      - ./TimescaleDB_coding_assignment-RD_eng_setup/cpu_usage.sql:/docker-entrypoint-initdb.d/01_cpu_usage.sql:ro
+      - ./TimescaleDB_coding_assignment-RD_eng_setup/cpu_usage.csv:/docker-entrypoint-initdb.d/02_cpu_usage.csv:ro
+      - ./scripts/load_cpu_usage.sh:/docker-entrypoint-initdb.d/02_load_cpu_usage.sh:ro
+    networks:
+      - tsbench
+volumes:
+  db: {}
+networks:
+  tsbench:
+    name: tsbench
